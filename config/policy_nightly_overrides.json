@@ -1,5 +1,5 @@
 {
-  "buy_budget_frac": 0.125,
+  "buy_budget_frac": 0.102,
   "buy_budget_by_regime": {
     "risk_on": 0.12,
     "neutral": 0.06,
@@ -28,7 +28,7 @@
     "trim_th": -0.05,
     "q_add": 0.0,
     "q_new": 0.9620253164556962,
-    "min_liq_norm": 0.4803921568627451,
+    "min_liq_norm": 0.45098039215686275,
     "near_ceiling_pct": 0.9371971074213226,
     "tp_pct": 0.0,
     "sl_pct": 0.0,
@@ -129,8 +129,8 @@
         "weight": 0.8
       },
       "turnover": {
-        "mean": 0.582323916230039,
-        "std": 0.3151068322699371,
+        "mean": 0.5823432690992089,
+        "std": 0.31509488892430026,
         "weight": 0.8
       },
       "mcclellan": {
@@ -146,31 +146,34 @@
     }
   },
   "sector_bias": {
-    "Bất động sản": -0.05,
-    "Công nghiệp": -0.02,
+    "Bất động sản": 0.03,
+    "Công nghiệp": 0.05,
     "Dịch vụ tiện ích": 0.03,
-    "Hàng tiêu dùng không thiết yếu": 0.05,
-    "Hàng tiêu dùng thiết yếu": 0.03,
-    "Nguyên vật liệu": 0.06,
-    "Năng lượng": 0.03,
-    "Tài chính": 0.04,
+    "Hàng tiêu dùng không thiết yếu": -0.06,
+    "Hàng tiêu dùng thiết yếu": 0.02,
+    "Nguyên vật liệu": 0.04,
+    "Năng lượng": 0.02,
+    "Tài chính": 0.06,
     "Y tế": 0.02,
-    "Công nghệ thông tin": 0.06
+    "Công nghệ thông tin": 0.08
   },
   "ticker_bias": {
     "GAS": 0.04,
     "PVD": 0.08,
     "POW": 0.03,
-    "HPG": 0.06,
-    "FPT": 0.07,
-    "VHM": 0.03,
+    "HPG": 0.08,
+    "FPT": 0.12,
+    "VHM": 0.05,
     "VIC": -0.04,
-    "VCB": 0.05,
+    "VCB": 0.06,
     "SSI": 0.03,
     "VNM": 0.04,
     "MWG": 0.04,
     "NVL": -0.06,
-    "DIG": -0.04
+    "DIG": -0.04,
+    "TCM": -0.08,
+    "MSH": -0.06,
+    "STK": -0.06
   },
   "calibration": {
     "on_run": 0,
@@ -276,7 +279,7 @@
     "momentum_unit": 0.12
   },
   "sizing": {
-    "softmax_tau": 0.08874740600586048,
+    "softmax_tau": 0.08912506103515735,
     "add_share": 0.5,
     "new_share": 0.5,
     "min_lot": 100,
@@ -291,7 +294,7 @@
     "qty_min_lot": 100,
     "min_notional_per_order": 2000000.0,
     "cov_lookback_days": 250,
-    "cov_reg": 0.0004326237988098865,
+    "cov_reg": 0.0004326230895475089,
     "risk_parity_floor": 0.2,
     "dynamic_caps": {
       "enable": 0,
