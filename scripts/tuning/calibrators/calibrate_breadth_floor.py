@@ -92,6 +92,43 @@ def _compute_breadth_series(df: pd.DataFrame) -> pd.Series:
     return frac
 
 
+def _weighted_quantile(series: pd.Series, q: float, half_life_days: float | None) -> float:
+    values = series.to_numpy(dtype=float)
+    if values.size == 0:
+        raise SystemExit('Breadth series empty (not enough MA50 data)')
+    if half_life_days is None or half_life_days <= 0:
+        return float(np.quantile(values, q))
+
+    idx = series.index
+    if isinstance(idx, pd.DatetimeIndex):
+        delta_days = ((idx[-1] - idx) / np.timedelta64(1, 'D')).astype(float)
+    else:
+        # Fall back to positional distance if index has no dates
+        delta_days = (np.arange(len(values))[-1] - np.arange(len(values))).astype(float)
+
+    # Convert half-life (days) to exponential decay rate
+    lam = np.log(2.0) / float(half_life_days)
+    weights = np.exp(-lam * delta_days)
+    weights = np.asarray(weights, dtype=float)
+    mask = np.isfinite(values) & np.isfinite(weights)
+    if not mask.any():
+        raise SystemExit('No finite data available for weighted quantile')
+    values = values[mask]
+    weights = weights[mask]
+    if not (weights > 0).any():
+        raise SystemExit('Invalid weights for weighted quantile (all zero)')
+
+    sorter = np.argsort(values)
+    values = values[sorter]
+    weights = weights[sorter]
+    cum = np.cumsum(weights)
+    total = cum[-1]
+    if not np.isfinite(total) or total <= 0:
+        raise SystemExit('Invalid cumulative weight during weighted quantile calculation')
+    cum /= total
+    return float(np.interp(q, cum, values))
+
+
 def calibrate(write: bool = False) -> float:
     pol = _load_policy()
     tgt = (pol.get('calibration_targets', {}) or {}).get('market_filter', {})
@@ -103,9 +140,47 @@ def calibrate(write: bool = False) -> float:
         raise SystemExit(f'invalid breadth_floor_q: {exc}') from exc
     if not (0.0 <= q <= 1.0):
         raise SystemExit('breadth_floor_q must be in [0,1]')
+
+    half_life = tgt.get('breadth_floor_half_life_days')
+    floor_min = tgt.get('breadth_floor_min')
+    floor_max = tgt.get('breadth_floor_max')
+    for key, val in (
+        ('breadth_floor_half_life_days', half_life),
+        ('breadth_floor_min', floor_min),
+        ('breadth_floor_max', floor_max),
+    ):
+        if val is None:
+            continue
+        try:
+            num = float(val)
+        except Exception as exc:
+            raise SystemExit(f'invalid {key}: {exc}') from exc
+        if key.endswith('_min'):
+            if num < 0.0 or num > 1.0:
+                raise SystemExit(f'{key} must be within [0,1]')
+        if key.endswith('_max'):
+            if num < 0.0 or num > 1.0:
+                raise SystemExit(f'{key} must be within [0,1]')
+        if key == 'breadth_floor_half_life_days' and num <= 0.0:
+            # Treat non-positive half-life as disabled
+            half_life = None
+        elif key.endswith('_min'):
+            floor_min = num
+        elif key.endswith('_max'):
+            floor_max = num
+        else:
+            half_life = num
+
+    if floor_min is not None and floor_max is not None and floor_min > floor_max:
+        raise SystemExit('breadth_floor_min cannot exceed breadth_floor_max')
+
     hist = _load_history()
     series = _compute_breadth_series(hist)
-    floor = float(np.quantile(series.to_numpy(), q))
+    floor = _weighted_quantile(series, q, half_life)
+    if floor_min is not None:
+        floor = max(floor, floor_min)
+    if floor_max is not None:
+        floor = min(floor, floor_max)
     if write:
         obj = pol
         mf = dict(obj.get('market_filter', {}) or {})
