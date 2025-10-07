@@ -27,13 +27,13 @@
     "base_new": 0.4,
     "trim_th": -0.05,
     "q_add": 0.0,
-    "q_new": 0.961038961038961,
+    "q_new": 0.9625,
     "min_liq_norm": 0.49019607843137253,
-    "near_ceiling_pct": 0.9583871636309302,
+    "near_ceiling_pct": 0.9542858429713513,
     "tp_pct": 0.0,
     "sl_pct": 0.0,
-    "tp_atr_mult": 0.9756097560975608,
-    "sl_atr_mult": 0.6504065040650406,
+    "tp_atr_mult": 0.9646302250803858,
+    "sl_atr_mult": 0.6430868167202572,
     "tp_floor_pct": 0.03,
     "tp_cap_pct": 0.1,
     "sl_floor_pct": 0.02,
@@ -95,7 +95,7 @@
     "add_max_neutral_cap": 1
   },
   "regime_model": {
-    "intercept": 2.05622337318885,
+    "intercept": 2.0558932521579005,
     "threshold": 0.8,
     "components": {
       "trend": {
@@ -114,8 +114,8 @@
         "weight": 1.2
       },
       "drawdown": {
-        "mean": 0.4369610673180393,
-        "std": 0.2907801765470275,
+        "mean": 0.436877875410948,
+        "std": 0.2906917263931856,
         "weight": 0.95
       },
       "volatility": {
@@ -124,13 +124,13 @@
         "weight": 1.05
       },
       "index_return": {
-        "mean": 0.136074923407046,
-        "std": 0.16313348987655035,
+        "mean": 0.13603373921974254,
+        "std": 0.16312634384180966,
         "weight": 0.8
       },
       "turnover": {
-        "mean": 0.5808442508038775,
-        "std": 0.3154476967561673,
+        "mean": 0.5812341447527234,
+        "std": 0.3152420125555719,
         "weight": 0.8
       },
       "mcclellan": {
@@ -146,15 +146,11 @@
     }
   },
   "sector_bias": {
-    "Hàng tiêu dùng thiết yếu": 0.05,
-    "Nguyên vật liệu": 0.04,
-    "Bất động sản": -0.05
+    "Hàng tiêu dùng thiết yếu": 0.02,
+    "Dịch vụ tiện ích": 0.02,
+    "Bất động sản": -0.03
   },
-  "ticker_bias": {
-    "HPG": 0.06,
-    "MWG": 0.05,
-    "VHM": -0.05
-  },
+  "ticker_bias": {},
   "calibration": {
     "on_run": 0,
     "regime_components": 0,
@@ -172,11 +168,11 @@
   "market_filter": {
     "risk_off_index_drop_pct": 0.3484877041695573,
     "risk_off_trend_floor": 0.0,
-    "risk_off_breadth_floor": 0.527450980392157,
+    "risk_off_breadth_floor": 0.48,
     "risk_off_drawdown_floor": 0.03765736205513479,
     "market_score_soft_floor": 0.6,
     "market_score_hard_floor": 0.3,
-    "leader_min_rsi": 53.3975,
+    "leader_min_rsi": 53.1575,
     "leader_min_mom_norm": 0.7524509803921569,
     "leader_require_ma20": 1,
     "leader_require_ma50": 1,
@@ -259,7 +255,7 @@
     "momentum_unit": 0.12
   },
   "sizing": {
-    "softmax_tau": 0.13912658691406357,
+    "softmax_tau": 0.1339904785156261,
     "add_share": 0.5,
     "new_share": 0.5,
     "min_lot": 100,
@@ -274,7 +270,7 @@
     "qty_min_lot": 100,
     "min_notional_per_order": 2000000.0,
     "cov_lookback_days": 250,
-    "cov_reg": 0.00043274559540371576,
+    "cov_reg": 0.00043289953426889875,
     "risk_parity_floor": 0.2,
     "dynamic_caps": {
       "enable": 0,
@@ -293,7 +289,7 @@
     "min_names_target": 10,
     "market_index_symbol": "VNINDEX",
     "risk_per_trade_frac": 0.005,
-    "default_stop_atr_mult": 0.6504065040650406,
+    "default_stop_atr_mult": 0.6430868167202572,
     "tranche_frac": 0.25,
     "mean_variance_calibration": {
       "enable": 1,
@@ -319,9 +315,9 @@
   },
   "orders_ui": {
     "ttl_minutes": {
-      "base": 14,
-      "soft": 11,
-      "hard": 8
+      "base": 11,
+      "soft": 9,
+      "hard": 7
     },
     "ttl_bucket_minutes": {
       "low": {
@@ -342,18 +338,18 @@
     },
     "watchlist": {
       "enable": 1,
-      "min_priority": 0.375,
+      "min_priority": 0.366,
       "micro_window": 3
     },
     "suggestions_top_n": 3,
     "ttl_bucket_state": {
-      "current": "low",
-      "sigma": 0.007940746425708385
+      "current": "medium",
+      "sigma": 0.009101055862350464
     },
     "ttl_bucket_thresholds": {
-      "p75": 0.008457346579413173,
+      "p75": 0.008520943182664994,
       "p95": 0.017155706018678753,
-      "latest": 0.007940746425708385
+      "latest": 0.009101055862350464
     },
     "ttl_minutes_baseline": {
       "base": 12,
