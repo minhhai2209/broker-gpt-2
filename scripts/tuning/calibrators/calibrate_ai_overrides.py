@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]
@@ -321,16 +321,66 @@ Schema tham chiếu (rút gọn):
 """
 
 
-def _invoke_codex(sample_json: str) -> Dict[str, Any]:
+def _find_codex_command() -> List[str] | None:
     codex_bin = shutil.which("codex")
-    if not codex_bin:
+    if codex_bin:
+        return [codex_bin]
+
+    codex_js = BASE_DIR / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+    if codex_js.exists():
+        node_bin = shutil.which("node") or "node"
+        return [node_bin, str(codex_js)]
+
+    bin_dir = BASE_DIR / "node_modules" / ".bin"
+    for name in ("codex.cmd", "codex.exe", "codex"):
+        candidate = bin_dir / name
+        if candidate.exists():
+            return [str(candidate)]
+
+    return None
+
+
+def _codex_auth_path() -> Path:
+    home = os.path.expanduser("~")
+    if not home:
+        return Path("~/.codex/auth.json")
+    return Path(home) / ".codex" / "auth.json"
+
+
+def _ensure_codex_auth_available() -> None:
+    auth_path = _codex_auth_path()
+    auth_env = os.environ.get("CODEX_AUTH_JSON", "").strip()
+    if auth_path.exists() and auth_path.stat().st_size > 0:
+        return
+    if auth_env:
+        auth_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            auth_path.write_text(auth_env, encoding="utf-8")
+            try:
+                os.chmod(auth_path, 0o600)
+            except OSError:
+                pass
+        except OSError as exc:
+            raise SystemExit(
+                f"Failed to write Codex auth to {auth_path}: {exc}"  # pragma: no cover
+            ) from exc
+        return
+    raise SystemExit(
+        "Codex credentials missing: populate ~/.codex/auth.json or provide CODEX_AUTH_JSON"
+    )
+
+
+def _invoke_codex(sample_json: str) -> Dict[str, Any]:
+    codex_cmd = _find_codex_command()
+    if not codex_cmd:
         if os.environ.get("BROKER_REQUIRE_CODEX") == "1":
             raise SystemExit("Codex CLI not found but BROKER_REQUIRE_CODEX=1")
         print("[ai_overrides] Codex CLI not found; skipping AI overlay generation")
         return {}
+    _ensure_codex_auth_available()
     prompt = _build_prompt(sample_json)
     cmd = [
-        codex_bin,
+        *codex_cmd,
         "exec",
         "--skip-git-repo-check",
         "--full-auto",
@@ -362,7 +412,14 @@ def _invoke_codex(sample_json: str) -> Dict[str, Any]:
         if proc.returncode != 0:
             err_path = debug_dir / f"codex_policy_error_{ts}.txt"
             err_path.write_text(output, encoding="utf-8")
-            raise SystemExit(f"Codex CLI failed with exit code {proc.returncode}; see {err_path}")
+            if "401 Unauthorized" in output:
+                raise SystemExit(
+                    "Codex CLI authentication failed (401 Unauthorized); "
+                    "refresh ~/.codex/auth.json or CODEX_AUTH_JSON"
+                )
+            raise SystemExit(
+                f"Codex CLI failed with exit code {proc.returncode}; see {err_path}"
+            )
         if not gen_path.exists():
             raise SystemExit("Codex run completed without generating policy_overrides.generated.json")
         return json.loads(gen_path.read_text(encoding="utf-8"))

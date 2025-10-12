@@ -33,7 +33,7 @@ Generated artifacts
 
 ## Tooling & CI (Codex)
 - Postinstall (Node): chạy `scripts/postinstall-codex-global.js` sau `npm install` để:
-  - Cài/kiểm tra Codex CLI toàn cục (`codex --version`), fallback `NPM_CONFIG_PREFIX=$HOME/.npm-global` nếu cần.
+  - Xác thực Codex CLI từ `node_modules` (`node .../codex.js --version`, không cài global).
   - Sao chép `.codex/config.toml` từ repo → `~/.codex/config.toml` với quyền `0600` (thiếu → fail‑fast `exit 2`).
   - `~/.codex/auth.json` chỉ được ghi khi có `CODEX_AUTH_JSON` trong env (local: có thì ghi, không thì bỏ qua; CI: step cấu hình trong workflow sẽ fail‑fast nếu secret thiếu).
 - GitHub Actions `.github/workflows/tuning.yml` (hiện hành):

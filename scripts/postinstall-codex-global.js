@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /*
-  Ensures a global Codex CLI is available as `codex`.
-  - Tries `codex --version`; if missing, installs globally via `npm install -g @openai/codex`.
-  - If installation is needed, ensure ~/.codex/auth.json exists; if missing, populate with $CODEX_AUTH_JSON (same contract as .github/workflows/tuning.yml).
-  - On EACCES or missing PATH to global bin, retries with a user prefix using NPM_CONFIG_PREFIX=$HOME/.npm-global.
-  - Verifies availability and fails fast if still not found.
+  Ensures the Codex CLI from the local node_modules is usable.
+  - Verifies @openai/codex is installed as a project dependency.
+  - Runs the CLI through the local Node runtime (no global install).
+  - Still bootstraps ~/.codex/config.toml and optional auth just like CI.
 
-  Fail-fast policy: if ~/.codex/auth.json is required but missing and $CODEX_AUTH_JSON is not provided, exit with a clear error.
+  Fail-fast policy: if ~/.codex/auth.json is required but missing and $CODEX_AUTH_JSON
+  is not provided, exit with a clear error.
 */
 
 const { spawnSync } = require('child_process');
@@ -17,16 +17,26 @@ const os = require('os');
 function ts() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 const PREFIX = `[codex-postinstall ${ts()} pid:${process.pid}]`;
-function info(msg) { console.log(`${PREFIX} ${msg}`); }
-function warn(msg) { console.warn(`${PREFIX} WARN: ${msg}`); }
-function error(msg) { console.error(`${PREFIX} ERROR: ${msg}`); }
+function info(msg) {
+  console.log(`${PREFIX} ${msg}`);
+}
+function warn(msg) {
+  console.warn(`${PREFIX} WARN: ${msg}`);
+}
+function error(msg) {
+  console.error(`${PREFIX} ERROR: ${msg}`);
+}
 
 function statSafe(p) {
-  try { return fs.statSync(p); } catch (_) { return null; }
+  try {
+    return fs.statSync(p);
+  } catch (_) {
+    return null;
+  }
 }
 
 function modeStr(mode) {
@@ -54,28 +64,6 @@ function runCapture(cmd, args, opts = {}) {
   return out;
 }
 
-function run(cmd, args, opts = {}) {
-  const res = runCapture(cmd, args, { stdio: 'pipe', ...opts });
-  return res.ok;
-}
-
-function existsOnPath(bin) {
-  if (process.platform === 'win32') {
-    const res = runCapture('where', [`${bin}.cmd`]);
-    return res.ok;
-  }
-  const res = runCapture('command', ['-v', bin]);
-  return res.ok;
-}
-
-function codexAvailable() {
-  const onPath = existsOnPath('codex');
-  info(`check codex on PATH: ${onPath}`);
-  if (!onPath) return false;
-  const ver = runCapture('codex', ['--version']);
-  return ver.ok;
-}
-
 function ensureAuthFromEnvIfMissing() {
   const home = os.homedir() || process.env.HOME || process.env.USERPROFILE;
   if (!home) {
@@ -88,7 +76,7 @@ function ensureAuthFromEnvIfMissing() {
 
   const authExists = fs.existsSync(authPath);
   info(`auth path: ${authPath} exists=${authExists}`);
-  if (authExists) return; // already present; nothing to do
+  if (authExists) return;
 
   const secret = process.env.CODEX_AUTH_JSON;
   if (!secret || String(secret).trim().length === 0) {
@@ -99,10 +87,13 @@ function ensureAuthFromEnvIfMissing() {
   try {
     info(`creating ${codexDir}`);
     fs.mkdirSync(codexDir, { recursive: true });
-    // Write exactly the provided content without trailing newline, restrict permissions
     const bytes = Buffer.byteLength(String(secret), 'utf-8');
     fs.writeFileSync(authPath, String(secret), { mode: 0o600 });
-    try { fs.chmodSync(authPath, 0o600); } catch (_) { /* best-effort on non-POSIX */ }
+    try {
+      fs.chmodSync(authPath, 0o600);
+    } catch (_) {
+      /* best-effort on non-POSIX */
+    }
     const st = statSafe(authPath);
     info(`wrote auth to ${authPath} size=${bytes}B mode=${st ? modeStr(st.mode) : 'n/a'}`);
   } catch (err) {
@@ -112,7 +103,6 @@ function ensureAuthFromEnvIfMissing() {
 }
 
 function ensureConfigTomlFromRepo() {
-  // Mirrors the behavior in .github/workflows/tuning.yml: fail fast if repo config is missing.
   const repoConfigPath = path.join(process.cwd(), '.codex', 'config.toml');
   info(`repo config candidate: ${repoConfigPath}`);
   if (!fs.existsSync(repoConfigPath)) {
@@ -131,11 +121,14 @@ function ensureConfigTomlFromRepo() {
   try {
     info(`ensure ~/.codex dir: ${codexDir}`);
     fs.mkdirSync(codexDir, { recursive: true });
-    // Force overwrite to keep local config in sync with repo baseline
     const content = fs.readFileSync(repoConfigPath);
     info(`read repo config bytes=${content.length}`);
     fs.writeFileSync(destConfigPath, content, { mode: 0o600 });
-    try { fs.chmodSync(destConfigPath, 0o600); } catch (_) { /* best-effort on non-POSIX */ }
+    try {
+      fs.chmodSync(destConfigPath, 0o600);
+    } catch (_) {
+      /* best-effort on non-POSIX */
+    }
     const st = statSafe(destConfigPath);
     info(`installed config to ${destConfigPath} size=${content.length}B mode=${st ? modeStr(st.mode) : 'n/a'}`);
   } catch (err) {
@@ -144,82 +137,56 @@ function ensureConfigTomlFromRepo() {
   }
 }
 
-function installGlobalCodexWithEnv(extraEnv = {}) {
-  const env = { ...process.env, ...extraEnv };
-  info(`attempting npm global install @openai/codex with env delta keys=[${Object.keys(extraEnv).join(', ')}]`);
-  const res = runCapture('npm', ['install', '-g', '@openai/codex'], { env });
-  return res.ok;
-}
-
-function main() {
-  info('=== BEGIN codex postinstall ===');
-  info(`node: ${process.version} platform: ${process.platform} arch: ${process.arch}`);
-  info(`cwd: ${process.cwd()}`);
-  info(`shell: ${process.env.SHELL || 'n/a'}`);
-  info(`PATH: ${process.env.PATH}`);
-  const whichNode = runCapture(process.platform === 'win32' ? 'where' : 'which', ['node']);
-  const whichNpm = runCapture(process.platform === 'win32' ? 'where' : 'which', ['npm']);
-  const npmPrefix = runCapture('npm', ['config', 'get', 'prefix']);
-  const npmBinG = runCapture('npm', ['bin', '-g']);
-
-  // Always attempt to populate auth.json if missing and env var is provided
-  // (this runs regardless of Codex presence).
-  ensureAuthFromEnvIfMissing();
-  // Always install/refresh config.toml from the repo; fail-fast if missing
-  ensureConfigTomlFromRepo();
-
-  if (codexAvailable()) {
-    info('codex already available; skipping installation');
-    info('=== END codex postinstall (noop) ===');
-    return;
+function findLocalCodexEntrypoint() {
+  const projectRoot = process.cwd();
+  const codexJs = path.join(projectRoot, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
+  if (fs.existsSync(codexJs)) {
+    const nodeBin = process.execPath || 'node';
+    info(`resolved local codex.js at ${codexJs} using node ${nodeBin}`);
+    return { command: nodeBin, args: [codexJs] };
   }
 
-  // Codex is missing and needs installation; proceed with install attempts.
-
-  // First attempt: default global prefix
-  info('codex not found; starting installation attempts');
-  if (!installGlobalCodexWithEnv()) {
-    // Retry with user-level prefix without mutating global npm config
-    const home = os.homedir() || process.env.HOME || process.env.USERPROFILE;
-    if (!home) {
-      error('HOME not set; cannot retry with user prefix');
-    } else {
-      const userPrefix = `${home}/.npm-global`;
-      const env = { NPM_CONFIG_PREFIX: userPrefix };
-      warn(`Retrying global install with user prefix at ${userPrefix}`);
-      info(`will add PATH hint if installation succeeds (prefix/bin)`);
-      if (!installGlobalCodexWithEnv(env)) {
-        error('Global installation failed with user prefix');
-      }
-      // Try to run codex from that prefix explicitly to validate
-      if (!codexAvailable()) {
-        // Try executing the binary directly from the expected bin folder to confirm installation
-        const binPath = `${userPrefix}/bin/codex`;
-        const ok = run(binPath, ['--version']);
-        if (!ok) {
-          error('Codex CLI still not available on PATH after installation attempts.');
-          error('Ensure your npm global bin is on PATH, or install manually:');
-          error('  npm install -g @openai/codex');
-          process.exit(1);
-          return;
-        } else {
-          // Not on PATH, but installed; print guidance
-          warn(`Codex installed at ${binPath} but not found on PATH.`);
-          warn('Add the following to your shell profile to use `codex` globally:');
-          warn(`  export PATH=\"${userPrefix}/bin:$PATH\"`);
-        }
-        return;
-      }
+  const binDir = path.join(projectRoot, 'node_modules', '.bin');
+  const candidates = process.platform === 'win32' ? ['codex.cmd', 'codex.exe', 'codex'] : ['codex'];
+  for (const name of candidates) {
+    const candidate = path.join(binDir, name);
+    if (fs.existsSync(candidate)) {
+      info(`resolved local codex binary at ${candidate}`);
+      return { command: candidate, args: [] };
     }
   }
 
-  if (!codexAvailable()) {
-    error('Codex CLI not found after installation.');
+  return null;
+}
+
+function verifyLocalCodex(entry) {
+  const res = runCapture(entry.command, [...entry.args, '--version']);
+  if (!res.ok) {
+    error('Local Codex CLI invocation failed; ensure @openai/codex is installed');
+    process.exit(res.status === null ? 1 : res.status);
+  }
+  info('codex installation verified via local dependency');
+}
+
+function main() {
+  info('=== BEGIN codex postinstall (local) ===');
+  info(`node: ${process.version} platform: ${process.platform} arch: ${process.arch}`);
+  info(`cwd: ${process.cwd()}`);
+  info(`PATH: ${process.env.PATH}`);
+  const whichNode = runCapture(process.platform === 'win32' ? 'where' : 'which', ['node']);
+  info(`node resolved ok=${whichNode.ok}`);
+
+  ensureAuthFromEnvIfMissing();
+  ensureConfigTomlFromRepo();
+
+  const entry = findLocalCodexEntrypoint();
+  if (!entry) {
+    error('Could not resolve local Codex CLI. Run `npm install` to install @openai/codex.');
     process.exit(1);
   }
-  const ver = runCapture('codex', ['--version']);
-  if (ver.ok) info('codex installation verified');
-  info('=== END codex postinstall ===');
+
+  verifyLocalCodex(entry);
+  info('=== END codex postinstall (local) ===');
 }
 
 main();

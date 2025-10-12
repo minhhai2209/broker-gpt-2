@@ -9,7 +9,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall-codex-global.js"
   },
-  "devDependencies": {
+  "dependencies": {
     "@openai/codex": "latest"
   }
 }

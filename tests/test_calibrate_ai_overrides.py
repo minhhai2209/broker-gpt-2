@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from scripts.tuning.calibrators import calibrate_ai_overrides
 
@@ -97,7 +98,7 @@ class TestCalibrateAIOverrides(TestCase):
                  patch.object(calibrate_ai_overrides, "OUT_DIR", base / "out"), \
                  patch.object(calibrate_ai_overrides, "AI_OVERRIDES_PATH", config_dir / "policy_ai_overrides.json"), \
                  patch.object(calibrate_ai_overrides, "AUDIT_PATH", base / "out" / "debug" / "audit.ndjson"), \
-                 patch("scripts.tuning.calibrators.calibrate_ai_overrides.shutil.which", return_value=None):
+                 patch.object(calibrate_ai_overrides, "_find_codex_command", return_value=None):
                 result = calibrate_ai_overrides.calibrate(write=True)
                 self.assertEqual(result, {})
                 self.assertFalse((config_dir / "policy_ai_overrides.json").exists())
@@ -113,7 +114,52 @@ class TestCalibrateAIOverrides(TestCase):
                  patch.object(calibrate_ai_overrides, "OUT_DIR", base / "out"), \
                  patch.object(calibrate_ai_overrides, "AI_OVERRIDES_PATH", config_dir / "policy_ai_overrides.json"), \
                  patch.object(calibrate_ai_overrides, "AUDIT_PATH", base / "out" / "debug" / "audit.ndjson"), \
-                 patch("scripts.tuning.calibrators.calibrate_ai_overrides.shutil.which", return_value=None), \
+                 patch.object(calibrate_ai_overrides, "_find_codex_command", return_value=None), \
                  patch.dict(os.environ, {"BROKER_REQUIRE_CODEX": "1"}, clear=False):
                 with self.assertRaises(SystemExit):
                     calibrate_ai_overrides.calibrate(write=True)
+
+    def test_ensure_codex_auth_bootstrap_from_env(self):
+        with TemporaryDirectory() as tmp:
+            auth_path = Path(tmp) / "auth.json"
+            payload = "{\"token\":\"abc\"}"
+            with patch.object(calibrate_ai_overrides, "_codex_auth_path", return_value=auth_path):
+                with patch.dict(os.environ, {"CODEX_AUTH_JSON": payload}, clear=False):
+                    calibrate_ai_overrides._ensure_codex_auth_available()
+            self.assertTrue(auth_path.exists())
+            self.assertEqual(auth_path.read_text(encoding="utf-8"), payload)
+
+    def test_ensure_codex_auth_requires_credentials(self):
+        with TemporaryDirectory() as tmp:
+            auth_path = Path(tmp) / "auth.json"
+            with patch.object(calibrate_ai_overrides, "_codex_auth_path", return_value=auth_path):
+                with patch.dict(os.environ, {"CODEX_AUTH_JSON": ""}, clear=False):
+                    with self.assertRaises(SystemExit):
+                        calibrate_ai_overrides._ensure_codex_auth_available()
+
+    def test_codex_auth_error_is_surface(self):
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config_dir = base / "config"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            (config_dir / "policy_default.json").write_text("{}", encoding="utf-8")
+            out_dir = base / "out"
+            with patch.object(calibrate_ai_overrides, "CONFIG_DIR", config_dir), \
+                 patch.object(calibrate_ai_overrides, "BASE_DIR", base), \
+                 patch.object(calibrate_ai_overrides, "OUT_DIR", out_dir), \
+                 patch.object(calibrate_ai_overrides, "AI_OVERRIDES_PATH", config_dir / "policy_ai_overrides.json"), \
+                 patch.object(calibrate_ai_overrides, "AUDIT_PATH", out_dir / "debug" / "audit.ndjson"), \
+                 patch.object(calibrate_ai_overrides, "_find_codex_command", return_value=["codex"]), \
+                 patch.object(calibrate_ai_overrides, "_ensure_codex_auth_available"), \
+                 patch.object(
+                     calibrate_ai_overrides.subprocess,
+                     "run",
+                     return_value=SimpleNamespace(
+                         returncode=1,
+                         stdout=b"401 Unauthorized\n",
+                         stderr=b"",
+                     ),
+                 ):
+                with self.assertRaises(SystemExit) as ctx:
+                    calibrate_ai_overrides.calibrate(write=False)
+        self.assertIn("401 Unauthorized", str(ctx.exception))

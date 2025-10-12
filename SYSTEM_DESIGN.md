@@ -58,10 +58,10 @@ Machine‑generated runtime snapshot
 
 Developer tooling (Codex bootstrap)
 - Postinstall: `scripts/postinstall-codex-global.js` chạy trong `npm install` để đảm bảo môi trường local/CI nhất quán:
-  - Kiểm tra/cài `@openai/codex` toàn cục (retry với `NPM_CONFIG_PREFIX=$HOME/.npm-global`).
+  - Xác thực gói `@openai/codex` có trong `node_modules` và gọi CLI qua runtime cục bộ (`node .../codex.js --version`).
   - Sao chép `.codex/config.toml` trong repo → `~/.codex/config.toml` (quyền `0600`). Thiếu file repo → in `::error::` và thoát `exit 2` (fail‑fast đúng chính sách CI).
   - Nếu có `CODEX_AUTH_JSON` trong env, ghi `~/.codex/auth.json` (`0600`); nếu job bắt buộc auth mà biến trống, step cấu hình trong workflow sẽ fail‑fast.
-  - Nếu không tìm thấy `codex` trên PATH sau cài đặt, script kết thúc với lỗi và in hướng dẫn bổ sung PATH.
+  - Thiếu CLI cục bộ → script kết thúc với lỗi, yêu cầu chạy lại `npm install` để cài `@openai/codex`.
 
  Policy của Broker GPT là tập hợp các tham số chiến lược chi phối cách engine đánh giá tín hiệu và quản trị rủi ro. Hệ thống tổ chức cấu hình này thành hai tầng: mặc định (baseline) và điều chỉnh hằng ngày (overrides). Mục đích là giữ ổn định chiến lược lõi nhưng vẫn cho phép tinh chỉnh linh hoạt theo diễn biến thị trường ngắn hạn. 
 

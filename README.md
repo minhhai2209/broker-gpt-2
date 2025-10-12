@@ -23,11 +23,11 @@ pip install -r requirements.txt
 
 Ghi chú Codex CLI (cho `tune`/`policy`)
 - Repo khai báo `@openai/codex` và có script postinstall (`scripts/postinstall-codex-global.js`). Khi chạy `npm install`:
-  - Kiểm tra/cài Codex CLI toàn cục (`npm install -g @openai/codex@latest`), fallback `NPM_CONFIG_PREFIX=$HOME/.npm-global` nếu cần.
+  - Xác thực gói `@openai/codex` đã được cài trong `node_modules` và chạy CLI ở chế độ cục bộ (`node .../codex.js --version`).
   - Sao chép `.codex/config.toml` từ repo → `~/.codex/config.toml` và đặt quyền `0600`.
   - Thiếu `.codex/config.toml` trong repo → in `::error::` và thoát `exit 2` (fail‑fast, phù hợp CI policy).
   - Nếu biến `CODEX_AUTH_JSON` có mặt, ghi `~/.codex/auth.json` (0600). Nếu job bắt buộc auth mà thiếu biến này, CI step sẽ fail.
-- Tuner yêu cầu `codex` có trên PATH; nếu không có sau postinstall, script sẽ fail‑fast và in hướng dẫn bổ sung `PATH`.
+- Tuner ưu tiên CLI cục bộ (`node_modules/.bin/codex` hoặc `node node_modules/@openai/codex/bin/codex.js`). Nếu thiếu, script sẽ fail‑fast với hướng dẫn chạy lại `npm install`.
 - Không còn biến môi trường để chọn “reasoning effort” hay số vòng phân tích cho Codex: hệ thống mặc định `reasoning_effort=high` và 1 vòng (ổn định, dễ tái lập).
 - Nếu chạy cục bộ mà thiếu Node/npm, các lệnh cần Codex sẽ fail‑fast; cài Node.js (>=18) rồi chạy `npm install` một lần để bootstrap.
 
